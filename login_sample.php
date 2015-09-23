@@ -1,4 +1,9 @@
 <?php
+	
+	// Loon AB'i ühenduse
+	require_once("../../config.php");
+	$database = "if15_Harri_3";
+	$mysqli = new mysqli($servername, $username, $password, $database);
 
   // muuutujad errorite jaoks
 	$email_error = "";
@@ -15,15 +20,15 @@
 
 	if($_SERVER["REQUEST_METHOD"] == "POST") {
 
-    // *********************
-    // **** LOGI SISSE *****
-    // *********************
+		// *********************
+		// **** LOGI SISSE *****
+		// *********************
 		if(isset($_POST["login"])){
 
 			if ( empty($_POST["email"]) ) {
 				$email_error = "See väli on kohustuslik";
 			}else{
-        // puhastame muutuja võimalikest üleliigsetest sümbolitest
+			// puhastame muutuja võimalikest üleliigsetest sümbolitest
 				$email = cleanInput($_POST["email"]);
 			}
 
@@ -33,39 +38,75 @@
 				$password = cleanInput($_POST["password"]);
 			}
 
-      // Kui oleme siia jõudnud, võime kasutaja sisse logida
+			// Kui oleme siia jõudnud, võime kasutaja sisse logida
 			if($password_error == "" && $email_error == ""){
 				echo "Võib sisse logida! Kasutajanimi on ".$email." ja parool on ".$password;
+			
+				$hash = hash("sha512", $password);
+				
+				$stmt = $mysqli->prepare("SELECT id, email FROM user_sample WHERE email=? AND password=?");
+				$stmt->bind_param("ss", $email, $hash);
+				
+				//muutujad tulemustele
+				$stmt->bind_result($id_from_db, $email_from_db);
+				$stmt->execute();
+				
+				//Kontrollin kas tulemusi leiti
+				if($stmt->fetch()){
+					// ab'i oli midagi
+					echo "Email ja parool õiged, kasutaja id=".$id_from_db;
+				}else{
+					// ei leidnud
+					echo "Wrong credentials!";
+				}
+				
+				$stmt->close();
+				
+				
 			}
 
 		} // login if end
 
-    // *********************
-    // ** LOO KASUTAJA *****
-    // *********************
-    if(isset($_POST["create"])){
+		// *********************
+		// ** LOO KASUTAJA *****
+		// *********************
+		if(isset($_POST["create"])){
 
-			if ( empty($_POST["create_email"]) ) {
-				$create_email_error = "See väli on kohustuslik";
-			}else{
-				$create_email = cleanInput($_POST["create_email"]);
-			}
-
-			if ( empty($_POST["create_password"]) ) {
-				$create_password_error = "See väli on kohustuslik";
-			} else {
-				if(strlen($_POST["create_password"]) < 8) {
-					$create_password_error = "Peab olema vähemalt 8 tähemärki pikk!";
+				if ( empty($_POST["create_email"]) ) {
+					$create_email_error = "See väli on kohustuslik";
 				}else{
-					$create_password = cleanInput($_POST["create_password"]);
+					$create_email = cleanInput($_POST["create_email"]);
 				}
-			}
 
-			if(	$create_email_error == "" && $create_password_error == ""){
-				echo "Võib kasutajat luua! Kasutajanimi on ".$create_email." ja parool on ".$create_password;
-      }
+				if ( empty($_POST["create_password"]) ) {
+					$create_password_error = "See väli on kohustuslik";
+				} else {
+					if(strlen($_POST["create_password"]) < 8) {
+						$create_password_error = "Peab olema vähemalt 8 tähemärki pikk!";
+					}else{
+						$create_password = cleanInput($_POST["create_password"]);
+					}
+				}
 
-    } // create if end
+				if(	$create_email_error == "" && $create_password_error == ""){
+					
+					// räsi paroolist, mille salvestame ab'i
+					$hash = hash("sha512", $create_password);
+					
+					echo "Võib kasutajat luua! Kasutajanimi on ".$create_email." ja parool on ".$create_password." ja räsi on ".$hash;
+					
+					//Salvestame AB'i
+					$stmt = $mysqli->prepare("INSERT INTO user_sample (email, password) VALUES (?,?)");
+					//echo $mysqli->error;
+					//echo $stmt->error;
+					
+					
+					// asendame ? märgid, ss - s on string email, s on string password
+					$stmt->bind_param("ss", $create_email, $hash);
+					$stmt->execute();
+					$stmt->close();
+				}
+		} // create if end
 
 	}
 
@@ -76,7 +117,10 @@
   	$data = htmlspecialchars($data);
   	return $data;
   }
-
+	
+	
+	// Paneme ühenduse kinni
+	$mysqli->close();
 ?>
 <!DOCTYPE html>
 <html>
